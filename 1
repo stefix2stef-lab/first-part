@@ -1,40 +1,39 @@
 -- ============================================================
--- PART 1 — Window + Tabs + ESP (bez World)
--- Eksportuje: getgenv().LinoriaLib / ESP_Window / ESP_Tabs
+-- PART 1 — Window + Tabs + ESP (Rayfield)
+-- Eksportuje: getgenv().Rayfield / ESP_Window / ESP_Tabs
 -- ============================================================
 
 -- ============================================================
 -- WINDOW / TABS
 -- ============================================================
-local Window = Library:CreateWindow({
-    Title = 'ESP',
-    Center = true,
-    AutoShow = true,
-    TabPadding = 8,
-    MenuFadeTime = 0.2
+local Rayfield = getgenv().Rayfield
+    or loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+getgenv().Rayfield = Rayfield
+
+local Window = Rayfield:CreateWindow({
+    Name = "ESP",
+    Icon = 0,
+    LoadingTitle = "ESP",
+    LoadingSubtitle = "Loading...",
+    Theme = "Default",
+    DisableRayfieldPrompts = true,
+    DisableBuildWarnings = true,
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = "ESP_Config",
+    },
+    Discord = { Enabled = false },
+    KeySystem = false,
 })
 
 local Tabs = {
-    ESP      = Window:AddTab('ESP'),
-    Skins    = Window:AddTab('Skins'),
-    gunmods  = Window:AddTab('Rage'),
-    World    = Window:AddTab('World'),
-    Settings = Window:AddTab('Settings'),
+    ESP      = Window:CreateTab("ESP", 4483362458),
+    Skins    = Window:CreateTab("Skins", 4483362458),
+    gunmods  = Window:CreateTab("Rage", 4483362458),
+    World    = Window:CreateTab("World", 4483362458),
+    Settings = Window:CreateTab("Settings", 4483362458),
 }
-
--- ============================================================
--- GROUPBOXY — ESP
--- ============================================================
-local ESPLeft1  = Tabs.ESP:AddLeftGroupbox('Box')
-local ESPLeft2  = Tabs.ESP:AddLeftGroupbox('Fill')
-local ESPLeft3  = Tabs.ESP:AddLeftGroupbox('Health Bar')
-local ESPLeft4  = Tabs.ESP:AddLeftGroupbox('Name ESP')
-local ESPLeft5  = Tabs.ESP:AddLeftGroupbox('Weapon Name ESP')
-
-local ESPRight1 = Tabs.ESP:AddRightGroupbox('Teamcheck')
-local ESPRight2 = Tabs.ESP:AddRightGroupbox('Chams')
-local ESPRight3 = Tabs.ESP:AddRightGroupbox('Chams Settings')
-local ESPRight4 = Tabs.ESP:AddRightGroupbox('Skeleton')
 
 -- ============================================================
 -- SERWISY
@@ -45,7 +44,7 @@ local HttpService  = game:GetService("HttpService")
 local Camera       = workspace.CurrentCamera
 local LocalPlayer  = Players.LocalPlayer
 
---{-- ============================================================
+-- ============================================================
 -- STAN
 -- ============================================================
 local espEnabled   = false
@@ -151,7 +150,6 @@ local function isCharacterDead(character)
     return false
 end
 
--- Zwraca gracza dopasowanego po nazwie (może być nil)
 local function getPlayerForCharacter(character)
     if not character then return nil end
     return Players:FindFirstChild(character.Name)
@@ -251,9 +249,8 @@ espGui.ResetOnSpawn   = false
 espGui.DisplayOrder   = 999
 espGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- KLUCZ = model postaci z workspace.Characters (nie Player!)
-local boxes           = {}   -- [characterModel] = box data
-local chamsHighlights = {}   -- [characterModel] = Highlight
+local boxes           = {}
+local chamsHighlights = {}
 
 -- ============================================================
 -- HELPERS — gradienty
@@ -573,7 +570,7 @@ local function removeBox(character)
 end
 
 -- ============================================================
--- BOX COMPUTE — stała proporcja szerokości (bez skanowania rąk)
+-- BOX COMPUTE
 -- ============================================================
 local function getBox(character)
     if not character then return nil end
@@ -592,7 +589,6 @@ local function getBox(character)
     local bottomPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
 
     local height = math.abs(headPos.Y - bottomPos.Y)
-    -- Szerokość = proporcja wysokości (0.75 = dość kwadratowy, bez skanowania rąk)
     local width  = height * 0.75
 
     local x = hrpPos.X - width / 2
@@ -609,7 +605,6 @@ end
 
 -- ============================================================
 -- MAIN LOOP
--- Iterujemy po workspace.Characters (jak Axion), nie po Players.
 -- ============================================================
 local ESP_BIND_NAME = "ESP_Render_Loop"
 
@@ -628,10 +623,8 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
     for _, character in ipairs(folder:GetChildren()) do
         if not character:IsA("Model") then continue end
 
-        -- gracz opcjonalnie — do TeamCheck i Name
         local player = getPlayerForCharacter(character)
 
-        -- pomiń własną postać
         if player ~= LocalPlayer then
             seen[character] = true
 
@@ -640,13 +633,12 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
             if b then
                 local dead = isCharacterDead(character)
 
-                -- TeamCheck tylko jeśli znaleziono gracza
                 local isTeamHidden = false
                 if teamCheckEnabled and player then
                     isTeamHidden = isTeammate(player) or not hasTeam(player)
                 end
 
-                -- ===== CHAMS =====
+                -- CHAMS
                 local chamsActive = false
                 if not isTeamHidden and chamsEnabled and not dead then
                     local skip = false
@@ -748,7 +740,7 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
                     continue
                 end
 
-                -- ===== SKELETON =====
+                -- SKELETON
                 if skeletonEnabled and not dead then
                     local rigType     = detectRigType(character)
                     local connections = (rigType == "R15") and SKELETON_R15 or SKELETON_R6
@@ -905,7 +897,6 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
                         b.healthBarOuter.Visible = false
                     end
 
-                    -- NAME — pokaż player.Name jeśli znaleziono, w innym wypadku character.Name
                     if nameEnabled then
                         local displayName = player and player.Name or character.Name
                         b.nameLabel.Visible  = true
@@ -951,7 +942,7 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
         end
     end
 
-    -- ===== CLEANUP: usuń boxy dla postaci, których już nie ma =====
+    -- CLEANUP
     local toRemove = {}
     for char in pairs(boxes) do
         if not seen[char] then table.insert(toRemove, char) end
@@ -962,333 +953,347 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
 end)
 
 -- ============================================================
--- COLOR PICKER HELPER
+-- COLOR PICKER HELPER (Rayfield — ColorPicker + Opacity slider)
 -- ============================================================
-local function addColorPicker(parent, labelText, flag, defaultColor, defaultTransparency, callback)
-    local label = parent:AddLabel(labelText)
-    label:AddColorPicker(flag, {
-        Default = defaultColor,
-        Transparency = defaultTransparency or 0,
+local colorState = {}
+
+local function addColorPicker(tab, labelText, flag, defaultColor, defaultTransparency, callback)
+    local alpha = 1 - (defaultTransparency or 0)
+    colorState[flag] = { color = defaultColor, alpha = alpha }
+
+    -- ustaw wartości startowe od razu
+    callback(defaultColor, alpha)
+
+    tab:CreateColorPicker({
+        Name = labelText,
+        Color = defaultColor,
+        Flag = flag,
+        Callback = function(color)
+            colorState[flag].color = color
+            callback(color, colorState[flag].alpha)
+        end,
     })
-    task.defer(function()
-        local opt = Options[flag]
-        if opt then
-            local function apply()
-                pcall(function()
-                    callback(opt.Value, 1 - (opt.Transparency or 0))
-                end)
-            end
-            opt:OnChanged(apply)
-            apply()
-        end
-    end)
+
+    tab:CreateSlider({
+        Name = labelText .. " Opacity",
+        Range = {0, 100},
+        Increment = 1,
+        Suffix = "%",
+        CurrentValue = math.floor(alpha * 100 + 0.5),
+        Flag = flag .. "_Opacity",
+        Callback = function(value)
+            colorState[flag].alpha = value / 100
+            callback(colorState[flag].color, value / 100)
+        end,
+    })
+end
+
+local function dropdownValue(option)
+    return type(option) == "table" and option[1] or option
 end
 
 -- ============================================================
--- UI — BOX
+-- UI — ESP TAB
 -- ============================================================
-local ESPDLeft1 = ESPLeft1
+local ET = Tabs.ESP
 
-ESPDLeft1:AddLabel('Box ESP')
-ESPDLeft1:AddToggle('BoxESP', {
-    Text = 'Box ESP',
-    Default = false,
-    Callback = function(value) espEnabled = value end
+-- ---------- BOX ----------
+ET:CreateSection("Box")
+ET:CreateToggle({
+    Name = "Box ESP",
+    CurrentValue = false,
+    Flag = "BoxESP",
+    Callback = function(value) espEnabled = value end,
 })
 
-addColorPicker(ESPDLeft1, 'Box Color 1', 'ESPOutlineColor',
+addColorPicker(ET, "Box Color 1", "ESPOutlineColor",
     Color3.fromRGB(255, 255, 255), 0,
     function(color, alpha)
-        outlineColor  = color
-        outlineAlpha  = alpha
+        outlineColor = color
+        outlineAlpha = alpha
     end)
 
-addColorPicker(ESPDLeft1, 'Box Color 2', 'ESPOutlineColor2',
+addColorPicker(ET, "Box Color 2", "ESPOutlineColor2",
     Color3.fromRGB(255, 255, 255), 0,
     function(color, alpha)
         outlineColor2 = color
         outlineAlpha2 = alpha
     end)
 
-ESPDLeft1:AddSlider('ESPOutlineRotation', {
-    Text = 'Box Rotation',
-    Default = 90, Min = 0, Max = 360, Rounding = 0, Suffix = '°',
-    Callback = function(value) outlineRotation = value end
+ET:CreateSlider({
+    Name = "Box Rotation",
+    Range = {0, 360}, Increment = 1, Suffix = "°",
+    CurrentValue = 90, Flag = "ESPOutlineRotation",
+    Callback = function(value) outlineRotation = value end,
 })
 
-ESPDLeft1:AddSlider('ESPOutlineSplit', {
-    Text = 'Box Split Position',
-    Default = 50, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
-    Callback = function(value) outlineSplit = value end
+ET:CreateSlider({
+    Name = "Box Split Position",
+    Range = {0, 100}, Increment = 1, Suffix = "%",
+    CurrentValue = 50, Flag = "ESPOutlineSplit",
+    Callback = function(value) outlineSplit = value end,
 })
 
-ESPDLeft1:AddSlider('ESPOutlineBlend', {
-    Text = 'Box Split Blend',
-    Default = 10, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
-    Callback = function(value) outlineBlend = value end
+ET:CreateSlider({
+    Name = "Box Split Blend",
+    Range = {0, 100}, Increment = 1, Suffix = "%",
+    CurrentValue = 10, Flag = "ESPOutlineBlend",
+    Callback = function(value) outlineBlend = value end,
 })
 
-ESPRight1:AddToggle('TeamCheckEnabled', {
-    Text = 'Team Check (hide teammates)',
-    Default = false,
-    Callback = function(value) teamCheckEnabled = value end
+ET:CreateToggle({
+    Name = "Enable Box Outline",
+    CurrentValue = false,
+    Flag = "BoxOutlineEnabled",
+    Callback = function(value) boxOutlineEnabled = value end,
 })
 
-ESPDLeft1:AddToggle('BoxOutlineEnabled', {
-    Text = 'Enable Box Outline',
-    Default = false,
-    Callback = function(value) boxOutlineEnabled = value end
-})
-
-addColorPicker(ESPDLeft1, 'Outline Color', 'BoxOutlineColor',
+addColorPicker(ET, "Outline Color", "BoxOutlineColor",
     Color3.fromRGB(0, 0, 0), 0,
     function(color, alpha)
         boxOutlineColor = color
         boxOutlineAlpha = alpha
     end)
 
--- ============================================================
--- UI — FILL
--- ============================================================
-local ESPDLeft2 = ESPLeft2
-ESPDLeft2:AddToggle('ESPFilled', {
-    Text = 'Filled Box',
-    Default = false,
-    Callback = function(value) espFilled = value end
+-- ---------- TEAMCHECK ----------
+ET:CreateSection("Teamcheck")
+ET:CreateToggle({
+    Name = "Team Check (hide teammates)",
+    CurrentValue = false,
+    Flag = "TeamCheckEnabled",
+    Callback = function(value) teamCheckEnabled = value end,
 })
 
-addColorPicker(ESPDLeft2, 'Fill Color 1', 'ESPFillColor',
+-- ---------- FILL ----------
+ET:CreateSection("Fill")
+ET:CreateToggle({
+    Name = "Filled Box",
+    CurrentValue = false,
+    Flag = "ESPFilled",
+    Callback = function(value) espFilled = value end,
+})
+
+addColorPicker(ET, "Fill Color 1", "ESPFillColor",
     Color3.fromRGB(255, 255, 255), 0.5,
     function(color, alpha)
         fillColor = color
         fillAlpha = alpha
     end)
 
-addColorPicker(ESPDLeft2, 'Fill Color 2', 'ESPFillColor2',
+addColorPicker(ET, "Fill Color 2", "ESPFillColor2",
     Color3.fromRGB(255, 255, 255), 0.5,
     function(color, alpha)
         fillColor2 = color
         fillAlpha2 = alpha
     end)
 
-ESPDLeft2:AddSlider('ESPFillRotation', {
-    Text = 'Gradient Rotation',
-    Default = 90, Min = 0, Max = 360, Rounding = 0, Suffix = '°',
-    Callback = function(value) fillRotation = value end
+ET:CreateSlider({
+    Name = "Gradient Rotation",
+    Range = {0, 360}, Increment = 1, Suffix = "°",
+    CurrentValue = 90, Flag = "ESPFillRotation",
+    Callback = function(value) fillRotation = value end,
 })
 
-ESPDLeft2:AddSlider('ESPFillSplit', {
-    Text = 'Split Position',
-    Default = 50, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
-    Callback = function(value) fillSplit = value end
+ET:CreateSlider({
+    Name = "Split Position",
+    Range = {0, 100}, Increment = 1, Suffix = "%",
+    CurrentValue = 50, Flag = "ESPFillSplit",
+    Callback = function(value) fillSplit = value end,
 })
 
-ESPDLeft2:AddSlider('ESPFillBlend', {
-    Text = 'Split Blend Width',
-    Default = 10, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
-    Callback = function(value) fillBlend = value end
+ET:CreateSlider({
+    Name = "Split Blend Width",
+    Range = {0, 100}, Increment = 1, Suffix = "%",
+    CurrentValue = 10, Flag = "ESPFillBlend",
+    Callback = function(value) fillBlend = value end,
 })
 
--- ============================================================
--- UI — CHAMS
--- ============================================================
-ESPRight2:AddLabel('Chams ESP')
-ESPRight2:AddToggle('ChamsEnabled', {
-    Text = 'Enable Chams',
-    Default = false,
-    Callback = function(value) chamsEnabled = value end
+-- ---------- HEALTH BAR ----------
+ET:CreateSection("Health Bar")
+ET:CreateToggle({
+    Name = "Enable Health Bar",
+    CurrentValue = false,
+    Flag = "HealthBarEnabled",
+    Callback = function(value) healthBarEnabled = value end,
 })
 
-ESPRight2:AddDropdown('ChamsStyle', {
-    Text = 'Style',
-    Values = { 'Classic', 'Pulse', 'Health' },
-    Default = 'Classic',
-    Callback = function(value) chamsStyle = value end
+ET:CreateDropdown({
+    Name = "Side",
+    Options = {"Left", "Right"},
+    CurrentOption = {"Left"},
+    Flag = "HealthBarSide",
+    Callback = function(option) healthBarSide = dropdownValue(option) end,
 })
 
-addColorPicker(ESPRight2, 'Fill Color', 'ChamsFillColor',
-    Color3.fromRGB(255, 0, 0), 0.5,
-    function(color, alpha)
-        chamsFillColor = color
-        chamsFillAlpha = alpha
-    end)
-
-addColorPicker(ESPRight2, 'Outline Color', 'ChamsOutlineColor',
-    Color3.fromRGB(255, 255, 255), 0,
-    function(color, alpha)
-        chamsOutlineColor = color
-        chamsOutlineAlpha = alpha
-    end)
-
--- ============================================================
--- UI — CHAMS SETTINGS
--- ============================================================
-ESPRight3:AddDropdown('ChamsDepthMode', {
-    Text = 'Depth Mode',
-    Values = { 'AlwaysOnTop', 'Occluded' },
-    Default = 'AlwaysOnTop',
-    Callback = function(value) chamsDepthMode = value end
-})
-
-ESPRight3:AddSlider('ChamsPulseSpeed', {
-    Text = 'Pulse Speed',
-    Default = 1.0, Min = 0, Max = 5, Rounding = 1, Suffix = 'x',
-    Callback = function(value) chamsPulseSpeed = value end
-})
-
-ESPRight3:AddLabel('Distance')
-ESPRight3:AddToggle('ChamsDistanceFade', {
-    Text = 'Distance Fade',
-    Default = false,
-    Callback = function(value) chamsDistanceFade = value end
-})
-
-ESPRight3:AddSlider('ChamsMaxDistance', {
-    Text = 'Max Distance',
-    Default = 200, Min = 20, Max = 1000, Rounding = 0, Suffix = ' studs',
-    Callback = function(value) chamsMaxDistance = value end
-})
-
--- ============================================================
--- UI — HEALTH BAR
--- ============================================================
-local ESPDLeft3 = ESPLeft3
-ESPDLeft3:AddLabel('Health Bar')
-ESPDLeft3:AddToggle('HealthBarEnabled', {
-    Text = 'Enable Health Bar',
-    Default = false,
-    Callback = function(value) healthBarEnabled = value end
-})
-
-ESPDLeft3:AddDropdown('HealthBarSide', {
-    Text = 'Side',
-    Values = { 'Left', 'Right' },
-    Default = 'Left',
-    Callback = function(value) healthBarSide = value end
-})
-
-addColorPicker(ESPDLeft3, 'Bar Color', 'HealthBarColor',
+addColorPicker(ET, "Bar Color", "HealthBarColor",
     Color3.fromRGB(0, 255, 0), 0,
     function(color, alpha) healthBarColor = color end)
 
-ESPDLeft3:AddLabel('Outline')
-ESPDLeft3:AddToggle('HealthBarOutlineEnabled', {
-    Text = 'Enable Outline',
-    Default = false,
-    Callback = function(value) healthBarOutlineEnabled = value end
+ET:CreateToggle({
+    Name = "Enable Health Bar Outline",
+    CurrentValue = false,
+    Flag = "HealthBarOutlineEnabled",
+    Callback = function(value) healthBarOutlineEnabled = value end,
 })
 
-addColorPicker(ESPDLeft3, 'Outline Color', 'HealthBarOutlineColor',
+addColorPicker(ET, "Health Bar Outline Color", "HealthBarOutlineColor",
     Color3.fromRGB(0, 0, 0), 0,
     function(color, alpha)
         healthBarOutlineColor = color
         healthBarOutlineAlpha = alpha
     end)
 
--- ============================================================
--- UI — SKELETON
--- ============================================================
-ESPRight4:AddLabel('Skeleton ESP')
-ESPRight4:AddToggle('SkeletonEnabled', {
-    Text = 'Enable Skeleton',
-    Default = false,
-    Callback = function(value) skeletonEnabled = value end
+-- ---------- NAME ----------
+ET:CreateSection("Name")
+ET:CreateToggle({
+    Name = "Enable Name ESP",
+    CurrentValue = false,
+    Flag = "NameEnabled",
+    Callback = function(value) nameEnabled = value end,
 })
 
-ESPRight4:AddSlider('SkeletonThickness', {
-    Text = 'Thickness',
-    Default = 1, Min = 1, Max = 10, Rounding = 0, Suffix = 'px',
-    Callback = function(value) skeletonThickness = value end
+addColorPicker(ET, "Name Color", "NameColor",
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha) nameColor = color end)
+
+ET:CreateToggle({
+    Name = "Enable Name Outline",
+    CurrentValue = false,
+    Flag = "NameOutline",
+    Callback = function(value) nameOutline = value end,
 })
 
-addColorPicker(ESPRight4, 'Color 1', 'SkeletonColor1',
+addColorPicker(ET, "Name Outline Color", "NameOutlineColor",
+    Color3.fromRGB(0, 0, 0), 0,
+    function(color, alpha) nameOutlineColor = color end)
+
+-- ---------- WEAPON ----------
+ET:CreateSection("Weapon")
+ET:CreateToggle({
+    Name = "Enable Weapon ESP",
+    CurrentValue = false,
+    Flag = "WeaponEnabled",
+    Callback = function(value) weaponEnabled = value end,
+})
+
+addColorPicker(ET, "Weapon Color", "WeaponColor",
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha) weaponColor = color end)
+
+ET:CreateToggle({
+    Name = "Enable Weapon Outline",
+    CurrentValue = false,
+    Flag = "WeaponOutline",
+    Callback = function(value) weaponOutline = value end,
+})
+
+addColorPicker(ET, "Weapon Outline Color", "WeaponOutlineColor",
+    Color3.fromRGB(0, 0, 0), 0,
+    function(color, alpha) weaponOutlineColor = color end)
+
+-- ---------- CHAMS ----------
+ET:CreateSection("Chams")
+ET:CreateToggle({
+    Name = "Enable Chams",
+    CurrentValue = false,
+    Flag = "ChamsEnabled",
+    Callback = function(value) chamsEnabled = value end,
+})
+
+ET:CreateDropdown({
+    Name = "Style",
+    Options = {"Classic", "Pulse", "Health"},
+    CurrentOption = {"Classic"},
+    Flag = "ChamsStyle",
+    Callback = function(option) chamsStyle = dropdownValue(option) end,
+})
+
+addColorPicker(ET, "Chams Fill Color", "ChamsFillColor",
+    Color3.fromRGB(255, 0, 0), 0.5,
+    function(color, alpha)
+        chamsFillColor = color
+        chamsFillAlpha = alpha
+    end)
+
+addColorPicker(ET, "Chams Outline Color", "ChamsOutlineColor",
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha)
+        chamsOutlineColor = color
+        chamsOutlineAlpha = alpha
+    end)
+
+-- ---------- CHAMS SETTINGS ----------
+ET:CreateSection("Chams Settings")
+ET:CreateDropdown({
+    Name = "Depth Mode",
+    Options = {"AlwaysOnTop", "Occluded"},
+    CurrentOption = {"AlwaysOnTop"},
+    Flag = "ChamsDepthMode",
+    Callback = function(option) chamsDepthMode = dropdownValue(option) end,
+})
+
+ET:CreateSlider({
+    Name = "Pulse Speed",
+    Range = {0, 5}, Increment = 0.1, Suffix = "x",
+    CurrentValue = 1.0, Flag = "ChamsPulseSpeed",
+    Callback = function(value) chamsPulseSpeed = value end,
+})
+
+ET:CreateToggle({
+    Name = "Distance Fade",
+    CurrentValue = false,
+    Flag = "ChamsDistanceFade",
+    Callback = function(value) chamsDistanceFade = value end,
+})
+
+ET:CreateSlider({
+    Name = "Max Distance",
+    Range = {20, 1000}, Increment = 1, Suffix = " studs",
+    CurrentValue = 200, Flag = "ChamsMaxDistance",
+    Callback = function(value) chamsMaxDistance = value end,
+})
+
+-- ---------- SKELETON ----------
+ET:CreateSection("Skeleton")
+ET:CreateToggle({
+    Name = "Enable Skeleton",
+    CurrentValue = false,
+    Flag = "SkeletonEnabled",
+    Callback = function(value) skeletonEnabled = value end,
+})
+
+ET:CreateSlider({
+    Name = "Skeleton Thickness",
+    Range = {1, 10}, Increment = 1, Suffix = "px",
+    CurrentValue = 1, Flag = "SkeletonThickness",
+    Callback = function(value) skeletonThickness = value end,
+})
+
+addColorPicker(ET, "Skeleton Color 1", "SkeletonColor1",
     Color3.fromRGB(255, 0, 0), 0,
     function(color, alpha)
         skeletonColor1 = color
         skeletonAlpha1 = alpha
     end)
 
-addColorPicker(ESPRight4, 'Color 2', 'SkeletonColor2',
+addColorPicker(ET, "Skeleton Color 2", "SkeletonColor2",
     Color3.fromRGB(255, 255, 255), 0,
     function(color, alpha)
         skeletonColor2 = color
         skeletonAlpha2 = alpha
     end)
 
-ESPRight4:AddSlider('SkeletonGradientRotation', {
-    Text = 'Gradient Rotation',
-    Default = 0, Min = 0, Max = 360, Rounding = 0, Suffix = '°',
-    Callback = function(value) skeletonGradientRotation = value end
+ET:CreateSlider({
+    Name = "Skeleton Gradient Rotation",
+    Range = {0, 360}, Increment = 1, Suffix = "°",
+    CurrentValue = 0, Flag = "SkeletonGradientRotation",
+    Callback = function(value) skeletonGradientRotation = value end,
 })
 
 -- ============================================================
--- UI — NAME
+-- EKSPORT GLOBALNY
 -- ============================================================
-local ESPDLeft4 = ESPLeft4
-ESPDLeft4:AddLabel('Name ESP')
-ESPDLeft4:AddToggle('NameEnabled', {
-    Text = 'Enable Name ESP',
-    Default = false,
-    Callback = function(value) nameEnabled = value end
-})
-
-addColorPicker(ESPDLeft4, 'Name Color', 'NameColor',
-    Color3.fromRGB(255, 255, 255), 0,
-    function(color, alpha) nameColor = color end)
-
-ESPDLeft4:AddLabel('Outline')
-ESPDLeft4:AddToggle('NameOutline', {
-    Text = 'Enable Outline',
-    Default = false,
-    Callback = function(value) nameOutline = value end
-})
-
-addColorPicker(ESPDLeft4, 'Outline Color', 'NameOutlineColor',
-    Color3.fromRGB(0, 0, 0), 0,
-    function(color, alpha) nameOutlineColor = color end)
-
--- ============================================================
--- UI — WEAPON
--- ============================================================
-local ESPDLeft5 = ESPLeft5
-ESPDLeft5:AddLabel('Weapon ESP')
-ESPDLeft5:AddToggle('WeaponEnabled', {
-    Text = 'Enable Weapon ESP',
-    Default = false,
-    Callback = function(value) weaponEnabled = value end
-})
-
-addColorPicker(ESPDLeft5, 'Weapon Color', 'WeaponColor',
-    Color3.fromRGB(255, 255, 255), 0,
-    function(color, alpha) weaponColor = color end)
-
-ESPDLeft5:AddLabel('Outline')
-ESPDLeft5:AddToggle('WeaponOutline', {
-    Text = 'Enable Outline',
-    Default = false,
-    Callback = function(value) weaponOutline = value end
-})
-
-addColorPicker(ESPDLeft5, 'Outline Color', 'WeaponOutlineColor',
-    Color3.fromRGB(0, 0, 0), 0,
-    function(color, alpha) weaponOutlineColor = color end)
-
--- ============================================================
--- SETTINGS (Theme + Save)
--- ============================================================
-ThemeManager:SetLibrary(Library)
-ThemeManager:ApplyToTab(Tabs.Settings)
-
-SaveManager:SetLibrary(Library)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-SaveManager:BuildConfigSection(Tabs.Settings)
--- SaveManager:LoadAutoloadConfig() — wywołaj PO załadowaniu wszystkich modułów
-
--- ============================================================
--- EKSPORT GLOBALNY (dla Part 2 / Part 3)
--- ============================================================
-getgenv().LinoriaLib = Library
+getgenv().Rayfield    = Rayfield
 getgenv().ESP_Window  = Window
 getgenv().ESP_Tabs    = Tabs
 
@@ -1307,12 +1312,6 @@ getgenv().__ESPCleanup = function()
     end
     chamsHighlights = {}
     boxes = {}
+    pcall(function() Rayfield:Destroy() end)
     getgenv().__ESPCleanup = nil
 end
-
-Library:OnUnload(function()
-    if getgenv().__ESPCleanup then
-        pcall(getgenv().__ESPCleanup)
-    end
-end)
-}--
