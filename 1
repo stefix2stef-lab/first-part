@@ -1,0 +1,1317 @@
+-- ============================================================
+-- PART 1 — Window + Tabs + ESP (bez World)
+-- Eksportuje: getgenv().LinoriaLib / ESP_Window / ESP_Tabs
+-- ============================================================
+
+-- ============================================================
+-- WINDOW / TABS
+-- ============================================================
+local Window = Library:CreateWindow({
+    Title = 'ESP',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    ESP      = Window:AddTab('ESP'),
+    Skins    = Window:AddTab('Skins'),
+    gunmods  = Window:AddTab('Rage'),
+    World    = Window:AddTab('World'),
+    Settings = Window:AddTab('Settings'),
+}
+
+-- ============================================================
+-- GROUPBOXY — ESP
+-- ============================================================
+local ESPLeft1  = Tabs.ESP:AddLeftGroupbox('Box')
+local ESPLeft2  = Tabs.ESP:AddLeftGroupbox('Fill')
+local ESPLeft3  = Tabs.ESP:AddLeftGroupbox('Health Bar')
+local ESPLeft4  = Tabs.ESP:AddLeftGroupbox('Name ESP')
+local ESPLeft5  = Tabs.ESP:AddLeftGroupbox('Weapon Name ESP')
+
+local ESPRight1 = Tabs.ESP:AddRightGroupbox('Teamcheck')
+local ESPRight2 = Tabs.ESP:AddRightGroupbox('Chams')
+local ESPRight3 = Tabs.ESP:AddRightGroupbox('Chams Settings')
+local ESPRight4 = Tabs.ESP:AddRightGroupbox('Skeleton')
+
+-- ============================================================
+-- SERWISY
+-- ============================================================
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local HttpService  = game:GetService("HttpService")
+local Camera       = workspace.CurrentCamera
+local LocalPlayer  = Players.LocalPlayer
+
+-- ============================================================
+-- STAN
+-- ============================================================
+local espEnabled   = false
+local espThickness = 1
+local espFilled    = false
+
+local teamCheckEnabled = false
+
+-- OUTLINE
+local outlineColor    = Color3.fromRGB(255, 255, 255)
+local outlineColor2   = Color3.fromRGB(255, 255, 255)
+local outlineAlpha    = 1
+local outlineAlpha2   = 1
+local outlineRotation = 90
+local outlineSplit    = 50
+local outlineBlend    = 10
+
+-- FILL
+local fillColor    = Color3.fromRGB(255, 255, 255)
+local fillColor2   = Color3.fromRGB(255, 255, 255)
+local fillAlpha    = 0.5
+local fillAlpha2   = 0.5
+local fillRotation = 90
+local fillSplit    = 50
+local fillBlend    = 10
+
+-- BOX OUTLINE
+local boxOutlineEnabled   = false
+local boxOutlineThickness = 2
+local boxOutlineColor     = Color3.fromRGB(0, 0, 0)
+local boxOutlineAlpha     = 1
+
+-- HEALTH BAR
+local healthBarEnabled          = false
+local healthBarSide             = "Left"
+local healthBarWidth            = 1
+local healthBarGap              = 3
+local healthBarPadding          = 0
+local healthBarColor            = Color3.fromRGB(0, 255, 0)
+local healthBarOutlineEnabled   = false
+local healthBarOutlineColor     = Color3.fromRGB(0, 0, 0)
+local healthBarOutlineAlpha     = 1
+local healthBarOutlineThickness = 1
+
+-- NAME
+local nameEnabled      = false
+local nameColor        = Color3.fromRGB(255, 255, 255)
+local nameOutline      = false
+local nameOutlineColor = Color3.fromRGB(0, 0, 0)
+local nameSize         = 8
+local nameOffset       = 2
+
+-- WEAPON
+local weaponEnabled      = false
+local weaponColor        = Color3.fromRGB(255, 255, 255)
+local weaponOutline      = false
+local weaponOutlineColor = Color3.fromRGB(0, 0, 0)
+local weaponSize         = 7
+local weaponOffset       = 1
+
+-- CHAMS
+local chamsEnabled      = false
+local chamsStyle        = "Classic"
+local chamsFillColor    = Color3.fromRGB(255, 0, 0)
+local chamsFillAlpha    = 0.5
+local chamsOutlineColor = Color3.fromRGB(255, 255, 255)
+local chamsOutlineAlpha = 1
+local chamsDepthMode    = "AlwaysOnTop"
+local chamsTeamCheck    = false
+local chamsPulseSpeed   = 1.0
+local chamsPulseMin     = 0.15
+local chamsPulseMax     = 0.7
+local chamsDistanceFade = false
+local chamsMaxDistance  = 200
+
+local CHAMS_RECREATE_INTERVAL = 20
+
+-- SKELETON
+local skeletonEnabled          = false
+local skeletonThickness        = 1
+local skeletonColor1           = Color3.fromRGB(255, 0, 0)
+local skeletonColor2           = Color3.fromRGB(255, 255, 255)
+local skeletonAlpha1           = 1
+local skeletonAlpha2           = 1
+local skeletonGradientRotation = 0
+
+local SKELETON_MAX_LINES = 20
+
+-- ============================================================
+-- POSTACIE — workspace.Characters
+-- ============================================================
+local function getCharactersFolder()
+    return workspace:FindFirstChild("Characters")
+end
+
+local function isCharacterDead(character)
+    if not character then return true end
+    if character:GetAttribute("Dead") == true then return true end
+    local hp = character:GetAttribute("Health")
+    if hp ~= nil then return hp <= 0 end
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if hum then return hum.Health <= 0 end
+    return false
+end
+
+-- Zwraca gracza dopasowanego po nazwie (może być nil)
+local function getPlayerForCharacter(character)
+    if not character then return nil end
+    return Players:FindFirstChild(character.Name)
+end
+
+local function getHealthInfo(character)
+    local hp    = character:GetAttribute("Health")
+    local maxHp = character:GetAttribute("MaxHealth")
+    if hp == nil then
+        local hum = character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hp    = hum.Health
+            maxHp = hum.MaxHealth
+        end
+    end
+    return hp or 0, maxHp or 100
+end
+
+local function isTeammate(player)
+    if not player then return false end
+    local myTeam = LocalPlayer:GetAttribute("Team")
+    local pTeam  = player:GetAttribute("Team")
+    return myTeam ~= nil and pTeam ~= nil and myTeam == pTeam
+end
+
+local function hasTeam(player)
+    if not player then return false end
+    return player:GetAttribute("Team") ~= nil
+end
+
+local function getWeaponName(player)
+    if not player then return nil end
+    local ce = player:GetAttribute("CurrentEquipped")
+    if type(ce) ~= "string" then return nil end
+    local ok, d = pcall(function() return HttpService:JSONDecode(ce) end)
+    if ok and type(d) == "table" then
+        return d.Name or d.Weapon or d.Skin
+    end
+    return nil
+end
+
+local LIMB_ALIASES = {
+    ["Head"]          = {"Head", "head"},
+    ["Torso"]         = {"Torso", "UpperTorso", "Trunk", "Body"},
+    ["UpperTorso"]    = {"UpperTorso", "Torso", "Trunk"},
+    ["LowerTorso"]    = {"LowerTorso", "Torso", "Hips"},
+    ["Left Arm"]      = {"Left Arm", "LeftArm", "Left_Arm", "Left arm", "LeftUpperArm"},
+    ["Right Arm"]     = {"Right Arm", "RightArm", "Right_Arm", "Right arm", "RightUpperArm"},
+    ["Left Leg"]      = {"Left Leg", "LeftLeg", "Left_Leg", "Left leg", "LeftUpperLeg"},
+    ["Right Leg"]     = {"Right Leg", "RightLeg", "Right_Leg", "Right leg", "RightUpperLeg"},
+    ["LeftUpperArm"]  = {"LeftUpperArm", "Left Arm", "LeftArm"},
+    ["RightUpperArm"] = {"RightUpperArm", "Right Arm", "RightArm"},
+    ["LeftLowerArm"]  = {"LeftLowerArm", "Left Arm", "LeftArm", "LeftHand"},
+    ["RightLowerArm"] = {"RightLowerArm", "Right Arm", "RightArm", "RightHand"},
+    ["LeftHand"]      = {"LeftHand", "Left Arm", "LeftArm", "LeftLowerArm"},
+    ["RightHand"]     = {"RightHand", "Right Arm", "RightArm", "RightLowerArm"},
+    ["LeftUpperLeg"]  = {"LeftUpperLeg", "Left Leg", "LeftLeg"},
+    ["RightUpperLeg"] = {"RightUpperLeg", "Right Leg", "RightLeg"},
+    ["LeftLowerLeg"]  = {"LeftLowerLeg", "Left Leg", "LeftLeg", "LeftFoot"},
+    ["RightLowerLeg"] = {"RightLowerLeg", "Right Leg", "RightLeg", "RightFoot"},
+    ["LeftFoot"]      = {"LeftFoot", "Left Leg", "LeftLeg", "LeftLowerLeg"},
+    ["RightFoot"]     = {"RightFoot", "Right Leg", "RightLeg", "RightLowerLeg"},
+}
+
+local SKELETON_R15 = {
+    {"Head", "UpperTorso"},
+    {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"},
+    {"LeftUpperArm", "LeftLowerArm"},
+    {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"},
+    {"RightUpperArm", "RightLowerArm"},
+    {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"},
+    {"LeftUpperLeg", "LeftLowerLeg"},
+    {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"},
+    {"RightUpperLeg", "RightLowerLeg"},
+    {"RightLowerLeg", "RightFoot"},
+}
+
+local SKELETON_R6 = {
+    {"Head", "Torso"},
+    {"Torso", "Left Arm"},
+    {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"},
+    {"Torso", "Right Leg"},
+}
+
+-- ============================================================
+-- SCREEN GUI
+-- ============================================================
+local espGui = Instance.new("ScreenGui")
+espGui.Name           = "ESP_Gui"
+espGui.IgnoreGuiInset = true
+espGui.ResetOnSpawn   = false
+espGui.DisplayOrder   = 999
+espGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- KLUCZ = model postaci z workspace.Characters (nie Player!)
+local boxes           = {}   -- [characterModel] = box data
+local chamsHighlights = {}   -- [characterModel] = Highlight
+
+-- ============================================================
+-- HELPERS — gradienty
+-- ============================================================
+local function computeZones(split, blend)
+    local p = math.clamp(split / 100, 0, 1)
+    local half = (math.clamp(blend, 0, 100) / 100) * 0.5
+    local pA = math.clamp(p - half, 0, 1)
+    local pB = math.clamp(p + half, 0, 1)
+    if pA >= pB then pB = math.min(1, pA + 0.001) end
+    if pB <= pA then pA = math.max(0, pB - 0.001) end
+    return pA, pB
+end
+
+local function applyStrokeStyle(stroke, gradient, a1, a2, rot, c1, c2, split, blend)
+    if a1 <= 0 and a2 <= 0 then
+        stroke.Transparency = 1
+        gradient.Enabled = false
+        return
+    end
+    stroke.Transparency = 0
+    stroke.Color = Color3.new(1, 1, 1)
+    gradient.Enabled = true
+    gradient.Rotation = rot
+    local pA, pB = computeZones(split, blend)
+    if a1 > 0 and a2 > 0 then
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,  c1),
+            ColorSequenceKeypoint.new(pA, c1),
+            ColorSequenceKeypoint.new(pB, c2),
+            ColorSequenceKeypoint.new(1,  c2),
+        })
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,  1 - a1),
+            NumberSequenceKeypoint.new(pA, 1 - a1),
+            NumberSequenceKeypoint.new(pB, 1 - a2),
+            NumberSequenceKeypoint.new(1,  1 - a2),
+        })
+    elseif a1 > 0 then
+        gradient.Color = ColorSequence.new(c1, c1)
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,  1 - a1),
+            NumberSequenceKeypoint.new(pA, 1 - a1),
+            NumberSequenceKeypoint.new(pB, 1),
+            NumberSequenceKeypoint.new(1,  1),
+        })
+    else
+        gradient.Color = ColorSequence.new(c2, c2)
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,  1),
+            NumberSequenceKeypoint.new(pA, 1),
+            NumberSequenceKeypoint.new(pB, 1 - a2),
+            NumberSequenceKeypoint.new(1,  1 - a2),
+        })
+    end
+end
+
+local function applyFillStyle(fill, gradient, visible, a1, a2, rot, c1, c2, split, blend)
+    if not visible or (a1 <= 0 and a2 <= 0) then
+        fill.Visible = false
+        return
+    end
+    fill.Visible = true
+    fill.BackgroundColor3 = Color3.new(1, 1, 1)
+    fill.BackgroundTransparency = 0
+    gradient.Enabled = true
+    gradient.Rotation = rot
+    local pA, pB = computeZones(split, blend)
+    if a1 > 0 and a2 > 0 then
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,  c1),
+            ColorSequenceKeypoint.new(pA, c1),
+            ColorSequenceKeypoint.new(pB, c2),
+            ColorSequenceKeypoint.new(1,  c2),
+        })
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,  1 - a1),
+            NumberSequenceKeypoint.new(pA, 1 - a1),
+            NumberSequenceKeypoint.new(pB, 1 - a2),
+            NumberSequenceKeypoint.new(1,  1 - a2),
+        })
+    elseif a1 > 0 then
+        gradient.Color = ColorSequence.new(c1, c1)
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,  1 - a1),
+            NumberSequenceKeypoint.new(pA, 1 - a1),
+            NumberSequenceKeypoint.new(pB, 1),
+            NumberSequenceKeypoint.new(1,  1),
+        })
+    else
+        gradient.Color = ColorSequence.new(c2, c2)
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,  1),
+            NumberSequenceKeypoint.new(pA, 1),
+            NumberSequenceKeypoint.new(pB, 1 - a2),
+            NumberSequenceKeypoint.new(1,  1 - a2),
+        })
+    end
+end
+
+-- ============================================================
+-- HELPERS — skeleton / limb
+-- ============================================================
+local function findLimb(character, name)
+    local alts = LIMB_ALIASES[name] or {name}
+    for _, alt in ipairs(alts) do
+        local part = character:FindFirstChild(alt)
+        if part and part:IsA("BasePart") then return part end
+    end
+    for _, alt in ipairs(alts) do
+        local part = character:FindFirstChild(alt, true)
+        if part and part:IsA("BasePart") then return part end
+    end
+    return nil
+end
+
+local function detectRigType(character)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        if humanoid.RigType == Enum.HumanoidRigType.R15 then return "R15"
+        elseif humanoid.RigType == Enum.HumanoidRigType.R6 then return "R6" end
+    end
+    if character:FindFirstChild("UpperTorso") or character:FindFirstChild("LowerTorso") then
+        return "R15"
+    end
+    return "R6"
+end
+
+local function getJointScreenPos(character, jointName)
+    local part = findLimb(character, jointName)
+    if not part then return nil end
+    local worldPos = part.Position
+    local camPos   = Camera.CFrame.Position
+    local toPoint  = worldPos - camPos
+    if toPoint:Dot(Camera.CFrame.LookVector) < 0 then return nil end
+    local screenPos = Camera:WorldToViewportPoint(worldPos)
+    return Vector2.new(screenPos.X, screenPos.Y)
+end
+
+local function lerpColor(a, b, t)
+    return Color3.new(
+        a.R + (b.R - a.R) * t,
+        a.G + (b.G - a.G) * t,
+        a.B + (b.B - a.B) * t
+    )
+end
+
+-- ============================================================
+-- CREATE / REMOVE BOX
+-- ============================================================
+local function createBox(character)
+    if boxes[character] then return end
+
+    local boxOutlineFrame = Instance.new("Frame")
+    boxOutlineFrame.BackgroundTransparency = 1
+    boxOutlineFrame.BorderSizePixel = 0
+    boxOutlineFrame.Visible = false
+    boxOutlineFrame.ZIndex  = 0
+    boxOutlineFrame.Parent  = espGui
+
+    local boxOutlineStroke = Instance.new("UIStroke")
+    boxOutlineStroke.Color = Color3.fromRGB(0, 0, 0)
+    boxOutlineStroke.Thickness = 1
+    boxOutlineStroke.Transparency = 0
+    boxOutlineStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    boxOutlineStroke.Parent = boxOutlineFrame
+
+    local outline = Instance.new("Frame")
+    outline.BackgroundTransparency = 1
+    outline.BorderSizePixel = 0
+    outline.Visible = false
+    outline.ZIndex  = 2
+    outline.Parent  = espGui
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.new(1, 1, 1)
+    stroke.Thickness = espThickness
+    stroke.Transparency = 0
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = outline
+
+    local strokeGradient = Instance.new("UIGradient")
+    strokeGradient.Parent = stroke
+
+    local fill = Instance.new("Frame")
+    fill.BackgroundColor3 = Color3.new(1, 1, 1)
+    fill.BorderSizePixel = 0
+    fill.Visible = false
+    fill.ZIndex  = 1
+    fill.Parent  = espGui
+
+    local fillGradient = Instance.new("UIGradient")
+    fillGradient.Parent = fill
+
+    local healthBarOuter = Instance.new("Frame")
+    healthBarOuter.BackgroundTransparency = 1
+    healthBarOuter.BorderSizePixel = 0
+    healthBarOuter.Visible = false
+    healthBarOuter.ZIndex  = 3
+    healthBarOuter.Parent  = espGui
+
+    local healthBarFill = Instance.new("Frame")
+    healthBarFill.BackgroundColor3 = healthBarColor
+    healthBarFill.BorderSizePixel = 0
+    healthBarFill.AnchorPoint = Vector2.new(0, 1)
+    healthBarFill.Position = UDim2.fromScale(0, 1)
+    healthBarFill.Size = UDim2.fromScale(1, 1)
+    healthBarFill.ZIndex = 4
+    healthBarFill.Parent = healthBarOuter
+
+    local healthBarOutline = Instance.new("UIStroke")
+    healthBarOutline.Color = healthBarOutlineColor
+    healthBarOutline.Thickness = healthBarOutlineThickness
+    healthBarOutline.Transparency = 1 - healthBarOutlineAlpha
+    healthBarOutline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    healthBarOutline.Parent = healthBarOuter
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.BorderSizePixel = 0
+    nameLabel.Visible = false
+    nameLabel.ZIndex  = 5
+    nameLabel.Font = Enum.Font.GothamSemibold
+    nameLabel.TextSize = nameSize
+    nameLabel.TextColor3 = nameColor
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    nameLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+    nameLabel.Text = ""
+    nameLabel.Parent = espGui
+
+    local nameStroke = Instance.new("UIStroke")
+    nameStroke.Color = nameOutlineColor
+    nameStroke.Thickness = 1
+    nameStroke.Transparency = nameOutline and 0 or 1
+    nameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    nameStroke.Parent = nameLabel
+
+    local weaponLabel = Instance.new("TextLabel")
+    weaponLabel.BackgroundTransparency = 1
+    weaponLabel.BorderSizePixel = 0
+    weaponLabel.Visible = false
+    weaponLabel.ZIndex  = 5
+    weaponLabel.Font = Enum.Font.GothamSemibold
+    weaponLabel.TextSize = weaponSize
+    weaponLabel.TextColor3 = weaponColor
+    weaponLabel.TextXAlignment = Enum.TextXAlignment.Center
+    weaponLabel.TextYAlignment = Enum.TextYAlignment.Top
+    weaponLabel.Text = ""
+    weaponLabel.Parent = espGui
+
+    local weaponStroke = Instance.new("UIStroke")
+    weaponStroke.Color = weaponOutlineColor
+    weaponStroke.Thickness = 1
+    weaponStroke.Transparency = weaponOutline and 0 or 1
+    weaponStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    weaponStroke.Parent = weaponLabel
+
+    local skeletonLines = {}
+    for i = 1, SKELETON_MAX_LINES do
+        local line = Instance.new("Frame")
+        line.AnchorPoint = Vector2.new(0.5, 0.5)
+        line.BackgroundColor3 = Color3.new(1, 1, 1)
+        line.BackgroundTransparency = 0
+        line.BorderSizePixel = 0
+        line.Visible = false
+        line.ZIndex  = 6
+        line.Parent  = espGui
+
+        local grad = Instance.new("UIGradient")
+        grad.Parent = line
+
+        skeletonLines[i] = { frame = line, gradient = grad }
+    end
+
+    boxes[character] = {
+        outline = outline,
+        stroke = stroke,
+        strokeGradient = strokeGradient,
+        fill = fill,
+        fillGradient = fillGradient,
+        boxOutlineFrame = boxOutlineFrame,
+        boxOutlineStroke = boxOutlineStroke,
+        healthBarOuter = healthBarOuter,
+        healthBarFill = healthBarFill,
+        healthBarOutline = healthBarOutline,
+        nameLabel = nameLabel,
+        nameStroke = nameStroke,
+        weaponLabel = weaponLabel,
+        weaponStroke = weaponStroke,
+        skeletonLines = skeletonLines,
+        chamsFrame = 0,
+        chamsHRP = nil,
+    }
+end
+
+local function removeBox(character)
+    if boxes[character] then
+        boxes[character].outline:Destroy()
+        boxes[character].fill:Destroy()
+        boxes[character].boxOutlineFrame:Destroy()
+        boxes[character].healthBarOuter:Destroy()
+        boxes[character].nameLabel:Destroy()
+        if boxes[character].weaponLabel then
+            boxes[character].weaponLabel:Destroy()
+        end
+        if boxes[character].skeletonLines then
+            for _, l in ipairs(boxes[character].skeletonLines) do
+                l.frame:Destroy()
+            end
+        end
+        boxes[character] = nil
+    end
+    if chamsHighlights[character] then
+        pcall(function() chamsHighlights[character]:Destroy() end)
+        chamsHighlights[character] = nil
+    end
+end
+
+-- ============================================================
+-- BOX COMPUTE — stała proporcja szerokości (bez skanowania rąk)
+-- ============================================================
+local function getBox(character)
+    if not character then return nil end
+
+    local hrp  = character:FindFirstChild("HumanoidRootPart")
+        or character:FindFirstChild("UpperTorso")
+        or character:FindFirstChild("Torso")
+    local head = character:FindFirstChild("Head")
+    if not hrp or not head then return nil end
+    if isCharacterDead(character) then return nil end
+
+    local hrpPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+    if not onScreen then return nil end
+
+    local headPos   = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+    local bottomPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+
+    local height = math.abs(headPos.Y - bottomPos.Y)
+    -- Szerokość = proporcja wysokości (0.75 = dość kwadratowy, bez skanowania rąk)
+    local width  = height * 0.75
+
+    local x = hrpPos.X - width / 2
+    local y = headPos.Y
+
+    local hp, maxHp = getHealthInfo(character)
+
+    return {
+        position  = Vector2.new(x, y),
+        size      = Vector2.new(width, height),
+        healthPct = math.clamp(hp / math.max(maxHp, 1), 0, 1),
+    }
+end
+
+-- ============================================================
+-- MAIN LOOP
+-- Iterujemy po workspace.Characters (jak Axion), nie po Players.
+-- ============================================================
+local ESP_BIND_NAME = "ESP_Render_Loop"
+
+pcall(function() RunService:UnbindFromRenderStep(ESP_BIND_NAME) end)
+
+RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1, function()
+    if getgenv().WC_FovEnabled and getgenv().WC_CustomFov then
+        Camera.FieldOfView = getgenv().WC_CustomFov
+    end
+
+    local folder = workspace:FindFirstChild("Characters")
+    if not folder then return end
+
+    local seen = {}
+
+    for _, character in ipairs(folder:GetChildren()) do
+        if not character:IsA("Model") then continue end
+
+        -- gracz opcjonalnie — do TeamCheck i Name
+        local player = getPlayerForCharacter(character)
+
+        -- pomiń własną postać
+        if player ~= LocalPlayer then
+            seen[character] = true
+
+            if not boxes[character] then createBox(character) end
+            local b = boxes[character]
+            if b then
+                local dead = isCharacterDead(character)
+
+                -- TeamCheck tylko jeśli znaleziono gracza
+                local isTeamHidden = false
+                if teamCheckEnabled and player then
+                    isTeamHidden = isTeammate(player) or not hasTeam(player)
+                end
+
+                -- ===== CHAMS =====
+                local chamsActive = false
+                if not isTeamHidden and chamsEnabled and not dead then
+                    local skip = false
+                    if chamsTeamCheck and player and isTeammate(player) then
+                        skip = true
+                    end
+
+                    if not skip then
+                        chamsActive = true
+
+                        local distAlpha = 1
+                        if chamsDistanceFade and chamsMaxDistance > 0 then
+                            local camPos    = Camera.CFrame.Position
+                            local targetPos = character:GetPivot().Position
+                            local dist      = (targetPos - camPos).Magnitude
+                            distAlpha       = math.clamp(1 - dist / chamsMaxDistance, 0, 1)
+                        end
+
+                        local fC = chamsFillColor
+                        local oC = chamsOutlineColor
+                        local fA = chamsFillAlpha
+                        local oA = chamsOutlineAlpha
+
+                        if chamsStyle == "Health" then
+                            local hp, maxHp = getHealthInfo(character)
+                            local ratio = math.clamp(hp / math.max(maxHp, 1), 0, 1)
+                            local hue   = ratio^2 * 0.33
+                            fC = Color3.fromHSV(hue, 1, 1)
+                            oC = Color3.fromHSV(hue, 0.6, 1)
+                        elseif chamsStyle == "Pulse" then
+                            local pulse = (math.sin(tick() * chamsPulseSpeed * math.pi * 2) + 1) * 0.5
+                            fA = chamsPulseMin + (chamsPulseMax - chamsPulseMin) * pulse
+                        end
+
+                        fA = fA * distAlpha
+                        oA = oA * distAlpha
+
+                        local hl  = chamsHighlights[character]
+                        local hrp = character:FindFirstChild("HumanoidRootPart")
+
+                        b.chamsFrame = (b.chamsFrame or 0) + 1
+
+                        local needsRecreate = (not hl)
+                            or hl.Parent ~= character
+                            or hl.Adornee ~= character
+                            or b.chamsHRP ~= hrp
+                            or b.chamsFrame >= CHAMS_RECREATE_INTERVAL
+
+                        if needsRecreate then
+                            b.chamsFrame = 0
+                            b.chamsHRP   = hrp
+                            if hl then pcall(function() hl:Destroy() end) end
+
+                            hl = Instance.new("Highlight")
+                            hl.Name      = "ESP_Chams"
+                            hl.Adornee   = character
+                            hl.DepthMode = (chamsDepthMode == "Occluded")
+                                and Enum.HighlightDepthMode.Occluded
+                                or  Enum.HighlightDepthMode.AlwaysOnTop
+                            hl.FillColor           = fC
+                            hl.FillTransparency    = 1 - fA
+                            hl.OutlineColor        = oC
+                            hl.OutlineTransparency = 1 - oA
+                            hl.Enabled = true
+                            hl.Parent  = character
+                            chamsHighlights[character] = hl
+                        else
+                            hl.FillColor           = fC
+                            hl.FillTransparency    = 1 - fA
+                            hl.OutlineColor        = oC
+                            hl.OutlineTransparency = 1 - oA
+                            hl.DepthMode = (chamsDepthMode == "Occluded")
+                                and Enum.HighlightDepthMode.Occluded
+                                or  Enum.HighlightDepthMode.AlwaysOnTop
+                        end
+                    end
+                end
+
+                if not chamsActive then
+                    local hl = chamsHighlights[character]
+                    if hl then
+                        pcall(function() hl:Destroy() end)
+                        chamsHighlights[character] = nil
+                    end
+                    b.chamsHRP   = nil
+                    b.chamsFrame = 0
+                end
+
+                if isTeamHidden then
+                    b.outline.Visible = false
+                    b.fill.Visible = false
+                    b.boxOutlineFrame.Visible = false
+                    b.healthBarOuter.Visible = false
+                    b.nameLabel.Visible = false
+                    if b.weaponLabel then b.weaponLabel.Visible = false end
+                    for i = 1, SKELETON_MAX_LINES do
+                        if b.skeletonLines[i] then b.skeletonLines[i].frame.Visible = false end
+                    end
+                    continue
+                end
+
+                -- ===== SKELETON =====
+                if skeletonEnabled and not dead then
+                    local rigType     = detectRigType(character)
+                    local connections = (rigType == "R15") and SKELETON_R15 or SKELETON_R6
+
+                    local rotRad = math.rad(skeletonGradientRotation)
+                    local dirX   = math.sin(rotRad)
+                    local dirY   = math.cos(rotRad)
+
+                    local points = {}
+                    local minP, maxP = math.huge, -math.huge
+                    for i, conn in ipairs(connections) do
+                        local p1 = getJointScreenPos(character, conn[1])
+                        local p2 = getJointScreenPos(character, conn[2])
+                        points[i] = { p1 = p1, p2 = p2 }
+                        for _, p in ipairs({p1, p2}) do
+                            if p then
+                                local proj = p.X * dirX + p.Y * dirY
+                                if proj < minP then minP = proj end
+                                if proj > maxP then maxP = proj end
+                            end
+                        end
+                    end
+                    if minP == math.huge or maxP == -math.huge then
+                        minP, maxP = 0, 1
+                    end
+                    local rangeP = math.max(maxP - minP, 1)
+
+                    local idx = 1
+                    for i, conn in ipairs(connections) do
+                        local p1 = points[i].p1
+                        local p2 = points[i].p2
+                        local ld = b.skeletonLines[idx]
+                        if p1 and p2 and ld then
+                            local delta  = p2 - p1
+                            local length = delta.Magnitude
+                            if length > 0.1 then
+                                local center = (p1 + p2) * 0.5
+                                local angle  = math.deg(math.atan2(delta.Y, delta.X))
+                                ld.frame.Position = UDim2.fromOffset(center.X, center.Y)
+                                ld.frame.Size = UDim2.fromOffset(length, skeletonThickness)
+                                ld.frame.Rotation = angle
+                                ld.frame.BackgroundColor3 = Color3.new(1, 1, 1)
+                                ld.frame.BackgroundTransparency = 0
+                                ld.frame.Visible = true
+
+                                local proj1 = p1.X * dirX + p1.Y * dirY
+                                local proj2 = p2.X * dirX + p2.Y * dirY
+                                local t1 = (proj1 - minP) / rangeP
+                                local t2 = (proj2 - minP) / rangeP
+
+                                local c1 = lerpColor(skeletonColor1, skeletonColor2, t1)
+                                local c2 = lerpColor(skeletonColor1, skeletonColor2, t2)
+                                local a1 = skeletonAlpha1 + (skeletonAlpha2 - skeletonAlpha1) * t1
+                                local a2 = skeletonAlpha1 + (skeletonAlpha2 - skeletonAlpha1) * t2
+
+                                ld.gradient.Color = ColorSequence.new({
+                                    ColorSequenceKeypoint.new(0, c1),
+                                    ColorSequenceKeypoint.new(1, c2),
+                                })
+                                ld.gradient.Transparency = NumberSequence.new({
+                                    NumberSequenceKeypoint.new(0, 1 - a1),
+                                    NumberSequenceKeypoint.new(1, 1 - a2),
+                                })
+                            else
+                                ld.frame.Visible = false
+                            end
+                        elseif ld then
+                            ld.frame.Visible = false
+                        end
+                        idx = idx + 1
+                    end
+                    for i = idx, SKELETON_MAX_LINES do
+                        if b.skeletonLines[i] then b.skeletonLines[i].frame.Visible = false end
+                    end
+                else
+                    for i = 1, SKELETON_MAX_LINES do
+                        if b.skeletonLines[i] then b.skeletonLines[i].frame.Visible = false end
+                    end
+                end
+
+                if not espEnabled and not healthBarEnabled and not nameEnabled and not weaponEnabled then
+                    b.outline.Visible = false
+                    b.fill.Visible = false
+                    b.boxOutlineFrame.Visible = false
+                    b.healthBarOuter.Visible = false
+                    b.nameLabel.Visible = false
+                    if b.weaponLabel then b.weaponLabel.Visible = false end
+                    continue
+                end
+
+                local box = getBox(character)
+                if box then
+                    local pos  = UDim2.fromOffset(box.position.X, box.position.Y)
+                    local size = UDim2.fromOffset(box.size.X, box.size.Y)
+
+                    if espEnabled and boxOutlineEnabled and boxOutlineAlpha > 0 and boxOutlineThickness > 0 then
+                        b.boxOutlineFrame.Visible = true
+                        b.boxOutlineStroke.Color        = boxOutlineColor
+                        b.boxOutlineStroke.Transparency = 1 - boxOutlineAlpha
+                        b.boxOutlineStroke.Thickness    = boxOutlineThickness
+                        b.boxOutlineFrame.Position = pos
+                        b.boxOutlineFrame.Size     = size
+                    else
+                        b.boxOutlineFrame.Visible = false
+                    end
+
+                    if espEnabled then
+                        b.outline.Position = pos
+                        b.outline.Size     = size
+                        b.stroke.Thickness = espThickness
+                        b.outline.Visible  = true
+
+                        applyStrokeStyle(b.stroke, b.strokeGradient,
+                            outlineAlpha, outlineAlpha2, outlineRotation,
+                            outlineColor, outlineColor2, outlineSplit, outlineBlend)
+
+                        b.fill.Position = pos
+                        b.fill.Size     = size
+                        applyFillStyle(b.fill, b.fillGradient, espFilled,
+                            fillAlpha, fillAlpha2, fillRotation,
+                            fillColor, fillColor2, fillSplit, fillBlend)
+                    else
+                        b.outline.Visible = false
+                        b.fill.Visible    = false
+                    end
+
+                    if healthBarEnabled then
+                        local barHeight = math.max(0, box.size.Y - healthBarPadding * 2)
+                        local barX
+                        if healthBarSide == "Left" then
+                            barX = box.position.X - healthBarGap - healthBarWidth
+                        else
+                            barX = box.position.X + box.size.X + healthBarGap
+                        end
+                        local barY = box.position.Y + healthBarPadding
+
+                        b.healthBarOuter.Visible = true
+                        b.healthBarOuter.Position = UDim2.fromOffset(barX, barY)
+                        b.healthBarOuter.Size     = UDim2.fromOffset(healthBarWidth, barHeight)
+                        b.healthBarOuter.BackgroundTransparency = 1
+
+                        if healthBarOutlineEnabled and healthBarOutlineAlpha > 0 and healthBarOutlineThickness > 0 then
+                            b.healthBarOutline.Enabled = true
+                            b.healthBarOutline.Color        = healthBarOutlineColor
+                            b.healthBarOutline.Transparency = 1 - healthBarOutlineAlpha
+                            b.healthBarOutline.Thickness    = healthBarOutlineThickness
+                        else
+                            b.healthBarOutline.Enabled = false
+                        end
+
+                        b.healthBarFill.Size = UDim2.fromScale(1, box.healthPct)
+                        b.healthBarFill.BackgroundColor3 = healthBarColor
+                    else
+                        b.healthBarOuter.Visible = false
+                    end
+
+                    -- NAME — pokaż player.Name jeśli znaleziono, w innym wypadku character.Name
+                    if nameEnabled then
+                        local displayName = player and player.Name or character.Name
+                        b.nameLabel.Visible  = true
+                        b.nameLabel.Text     = displayName
+                        b.nameLabel.TextSize = nameSize
+                        b.nameLabel.TextColor3 = nameColor
+                        b.nameLabel.Position = UDim2.fromOffset(
+                            box.position.X - 50,
+                            box.position.Y - nameOffset - nameSize - 4
+                        )
+                        b.nameLabel.Size = UDim2.fromOffset(box.size.X + 100, nameSize + 4)
+                        b.nameStroke.Transparency = nameOutline and 0 or 1
+                        b.nameStroke.Color        = nameOutlineColor
+                    else
+                        b.nameLabel.Visible = false
+                    end
+
+                    if weaponEnabled and b.weaponLabel then
+                        local wname = (player and getWeaponName(player)) or "No Weapon"
+                        b.weaponLabel.Visible  = true
+                        b.weaponLabel.Text     = wname
+                        b.weaponLabel.TextSize = weaponSize
+                        b.weaponLabel.TextColor3 = weaponColor
+                        b.weaponLabel.Position = UDim2.fromOffset(
+                            box.position.X - 50,
+                            box.position.Y + box.size.Y + weaponOffset
+                        )
+                        b.weaponLabel.Size = UDim2.fromOffset(box.size.X + 100, weaponSize + 4)
+                        b.weaponStroke.Transparency = weaponOutline and 0 or 1
+                        b.weaponStroke.Color        = weaponOutlineColor
+                    elseif b.weaponLabel then
+                        b.weaponLabel.Visible = false
+                    end
+                else
+                    b.outline.Visible = false
+                    b.fill.Visible = false
+                    b.boxOutlineFrame.Visible = false
+                    b.healthBarOuter.Visible = false
+                    b.nameLabel.Visible = false
+                    if b.weaponLabel then b.weaponLabel.Visible = false end
+                end
+            end
+        end
+    end
+
+    -- ===== CLEANUP: usuń boxy dla postaci, których już nie ma =====
+    local toRemove = {}
+    for char in pairs(boxes) do
+        if not seen[char] then table.insert(toRemove, char) end
+    end
+    for _, char in ipairs(toRemove) do
+        removeBox(char)
+    end
+end)
+
+-- ============================================================
+-- COLOR PICKER HELPER
+-- ============================================================
+local function addColorPicker(parent, labelText, flag, defaultColor, defaultTransparency, callback)
+    local label = parent:AddLabel(labelText)
+    label:AddColorPicker(flag, {
+        Default = defaultColor,
+        Transparency = defaultTransparency or 0,
+    })
+    task.defer(function()
+        local opt = Options[flag]
+        if opt then
+            local function apply()
+                pcall(function()
+                    callback(opt.Value, 1 - (opt.Transparency or 0))
+                end)
+            end
+            opt:OnChanged(apply)
+            apply()
+        end
+    end)
+end
+
+-- ============================================================
+-- UI — BOX
+-- ============================================================
+local ESPDLeft1 = ESPLeft1
+
+ESPDLeft1:AddLabel('Box ESP')
+ESPDLeft1:AddToggle('BoxESP', {
+    Text = 'Box ESP',
+    Default = false,
+    Callback = function(value) espEnabled = value end
+})
+
+addColorPicker(ESPDLeft1, 'Box Color 1', 'ESPOutlineColor',
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha)
+        outlineColor  = color
+        outlineAlpha  = alpha
+    end)
+
+addColorPicker(ESPDLeft1, 'Box Color 2', 'ESPOutlineColor2',
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha)
+        outlineColor2 = color
+        outlineAlpha2 = alpha
+    end)
+
+ESPDLeft1:AddSlider('ESPOutlineRotation', {
+    Text = 'Box Rotation',
+    Default = 90, Min = 0, Max = 360, Rounding = 0, Suffix = '°',
+    Callback = function(value) outlineRotation = value end
+})
+
+ESPDLeft1:AddSlider('ESPOutlineSplit', {
+    Text = 'Box Split Position',
+    Default = 50, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
+    Callback = function(value) outlineSplit = value end
+})
+
+ESPDLeft1:AddSlider('ESPOutlineBlend', {
+    Text = 'Box Split Blend',
+    Default = 10, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
+    Callback = function(value) outlineBlend = value end
+})
+
+ESPRight1:AddToggle('TeamCheckEnabled', {
+    Text = 'Team Check (hide teammates)',
+    Default = false,
+    Callback = function(value) teamCheckEnabled = value end
+})
+
+ESPDLeft1:AddToggle('BoxOutlineEnabled', {
+    Text = 'Enable Box Outline',
+    Default = false,
+    Callback = function(value) boxOutlineEnabled = value end
+})
+
+addColorPicker(ESPDLeft1, 'Outline Color', 'BoxOutlineColor',
+    Color3.fromRGB(0, 0, 0), 0,
+    function(color, alpha)
+        boxOutlineColor = color
+        boxOutlineAlpha = alpha
+    end)
+
+-- ============================================================
+-- UI — FILL
+-- ============================================================
+local ESPDLeft2 = ESPLeft2
+ESPDLeft2:AddToggle('ESPFilled', {
+    Text = 'Filled Box',
+    Default = false,
+    Callback = function(value) espFilled = value end
+})
+
+addColorPicker(ESPDLeft2, 'Fill Color 1', 'ESPFillColor',
+    Color3.fromRGB(255, 255, 255), 0.5,
+    function(color, alpha)
+        fillColor = color
+        fillAlpha = alpha
+    end)
+
+addColorPicker(ESPDLeft2, 'Fill Color 2', 'ESPFillColor2',
+    Color3.fromRGB(255, 255, 255), 0.5,
+    function(color, alpha)
+        fillColor2 = color
+        fillAlpha2 = alpha
+    end)
+
+ESPDLeft2:AddSlider('ESPFillRotation', {
+    Text = 'Gradient Rotation',
+    Default = 90, Min = 0, Max = 360, Rounding = 0, Suffix = '°',
+    Callback = function(value) fillRotation = value end
+})
+
+ESPDLeft2:AddSlider('ESPFillSplit', {
+    Text = 'Split Position',
+    Default = 50, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
+    Callback = function(value) fillSplit = value end
+})
+
+ESPDLeft2:AddSlider('ESPFillBlend', {
+    Text = 'Split Blend Width',
+    Default = 10, Min = 0, Max = 100, Rounding = 0, Suffix = '%',
+    Callback = function(value) fillBlend = value end
+})
+
+-- ============================================================
+-- UI — CHAMS
+-- ============================================================
+ESPRight2:AddLabel('Chams ESP')
+ESPRight2:AddToggle('ChamsEnabled', {
+    Text = 'Enable Chams',
+    Default = false,
+    Callback = function(value) chamsEnabled = value end
+})
+
+ESPRight2:AddDropdown('ChamsStyle', {
+    Text = 'Style',
+    Values = { 'Classic', 'Pulse', 'Health' },
+    Default = 'Classic',
+    Callback = function(value) chamsStyle = value end
+})
+
+addColorPicker(ESPRight2, 'Fill Color', 'ChamsFillColor',
+    Color3.fromRGB(255, 0, 0), 0.5,
+    function(color, alpha)
+        chamsFillColor = color
+        chamsFillAlpha = alpha
+    end)
+
+addColorPicker(ESPRight2, 'Outline Color', 'ChamsOutlineColor',
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha)
+        chamsOutlineColor = color
+        chamsOutlineAlpha = alpha
+    end)
+
+-- ============================================================
+-- UI — CHAMS SETTINGS
+-- ============================================================
+ESPRight3:AddDropdown('ChamsDepthMode', {
+    Text = 'Depth Mode',
+    Values = { 'AlwaysOnTop', 'Occluded' },
+    Default = 'AlwaysOnTop',
+    Callback = function(value) chamsDepthMode = value end
+})
+
+ESPRight3:AddSlider('ChamsPulseSpeed', {
+    Text = 'Pulse Speed',
+    Default = 1.0, Min = 0, Max = 5, Rounding = 1, Suffix = 'x',
+    Callback = function(value) chamsPulseSpeed = value end
+})
+
+ESPRight3:AddLabel('Distance')
+ESPRight3:AddToggle('ChamsDistanceFade', {
+    Text = 'Distance Fade',
+    Default = false,
+    Callback = function(value) chamsDistanceFade = value end
+})
+
+ESPRight3:AddSlider('ChamsMaxDistance', {
+    Text = 'Max Distance',
+    Default = 200, Min = 20, Max = 1000, Rounding = 0, Suffix = ' studs',
+    Callback = function(value) chamsMaxDistance = value end
+})
+
+-- ============================================================
+-- UI — HEALTH BAR
+-- ============================================================
+local ESPDLeft3 = ESPLeft3
+ESPDLeft3:AddLabel('Health Bar')
+ESPDLeft3:AddToggle('HealthBarEnabled', {
+    Text = 'Enable Health Bar',
+    Default = false,
+    Callback = function(value) healthBarEnabled = value end
+})
+
+ESPDLeft3:AddDropdown('HealthBarSide', {
+    Text = 'Side',
+    Values = { 'Left', 'Right' },
+    Default = 'Left',
+    Callback = function(value) healthBarSide = value end
+})
+
+addColorPicker(ESPDLeft3, 'Bar Color', 'HealthBarColor',
+    Color3.fromRGB(0, 255, 0), 0,
+    function(color, alpha) healthBarColor = color end)
+
+ESPDLeft3:AddLabel('Outline')
+ESPDLeft3:AddToggle('HealthBarOutlineEnabled', {
+    Text = 'Enable Outline',
+    Default = false,
+    Callback = function(value) healthBarOutlineEnabled = value end
+})
+
+addColorPicker(ESPDLeft3, 'Outline Color', 'HealthBarOutlineColor',
+    Color3.fromRGB(0, 0, 0), 0,
+    function(color, alpha)
+        healthBarOutlineColor = color
+        healthBarOutlineAlpha = alpha
+    end)
+
+-- ============================================================
+-- UI — SKELETON
+-- ============================================================
+ESPRight4:AddLabel('Skeleton ESP')
+ESPRight4:AddToggle('SkeletonEnabled', {
+    Text = 'Enable Skeleton',
+    Default = false,
+    Callback = function(value) skeletonEnabled = value end
+})
+
+ESPRight4:AddSlider('SkeletonThickness', {
+    Text = 'Thickness',
+    Default = 1, Min = 1, Max = 10, Rounding = 0, Suffix = 'px',
+    Callback = function(value) skeletonThickness = value end
+})
+
+addColorPicker(ESPRight4, 'Color 1', 'SkeletonColor1',
+    Color3.fromRGB(255, 0, 0), 0,
+    function(color, alpha)
+        skeletonColor1 = color
+        skeletonAlpha1 = alpha
+    end)
+
+addColorPicker(ESPRight4, 'Color 2', 'SkeletonColor2',
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha)
+        skeletonColor2 = color
+        skeletonAlpha2 = alpha
+    end)
+
+ESPRight4:AddSlider('SkeletonGradientRotation', {
+    Text = 'Gradient Rotation',
+    Default = 0, Min = 0, Max = 360, Rounding = 0, Suffix = '°',
+    Callback = function(value) skeletonGradientRotation = value end
+})
+
+-- ============================================================
+-- UI — NAME
+-- ============================================================
+local ESPDLeft4 = ESPLeft4
+ESPDLeft4:AddLabel('Name ESP')
+ESPDLeft4:AddToggle('NameEnabled', {
+    Text = 'Enable Name ESP',
+    Default = false,
+    Callback = function(value) nameEnabled = value end
+})
+
+addColorPicker(ESPDLeft4, 'Name Color', 'NameColor',
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha) nameColor = color end)
+
+ESPDLeft4:AddLabel('Outline')
+ESPDLeft4:AddToggle('NameOutline', {
+    Text = 'Enable Outline',
+    Default = false,
+    Callback = function(value) nameOutline = value end
+})
+
+addColorPicker(ESPDLeft4, 'Outline Color', 'NameOutlineColor',
+    Color3.fromRGB(0, 0, 0), 0,
+    function(color, alpha) nameOutlineColor = color end)
+
+-- ============================================================
+-- UI — WEAPON
+-- ============================================================
+local ESPDLeft5 = ESPLeft5
+ESPDLeft5:AddLabel('Weapon ESP')
+ESPDLeft5:AddToggle('WeaponEnabled', {
+    Text = 'Enable Weapon ESP',
+    Default = false,
+    Callback = function(value) weaponEnabled = value end
+})
+
+addColorPicker(ESPDLeft5, 'Weapon Color', 'WeaponColor',
+    Color3.fromRGB(255, 255, 255), 0,
+    function(color, alpha) weaponColor = color end)
+
+ESPDLeft5:AddLabel('Outline')
+ESPDLeft5:AddToggle('WeaponOutline', {
+    Text = 'Enable Outline',
+    Default = false,
+    Callback = function(value) weaponOutline = value end
+})
+
+addColorPicker(ESPDLeft5, 'Outline Color', 'WeaponOutlineColor',
+    Color3.fromRGB(0, 0, 0), 0,
+    function(color, alpha) weaponOutlineColor = color end)
+
+-- ============================================================
+-- SETTINGS (Theme + Save)
+-- ============================================================
+ThemeManager:SetLibrary(Library)
+ThemeManager:ApplyToTab(Tabs.Settings)
+
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+SaveManager:BuildConfigSection(Tabs.Settings)
+-- SaveManager:LoadAutoloadConfig() — wywołaj PO załadowaniu wszystkich modułów
+
+-- ============================================================
+-- EKSPORT GLOBALNY (dla Part 2 / Part 3)
+-- ============================================================
+getgenv().LinoriaLib = Library
+getgenv().ESP_Window  = Window
+getgenv().ESP_Tabs    = Tabs
+
+-- ============================================================
+-- CLEANUP
+-- ============================================================
+if getgenv().__ESPCleanup then
+    pcall(getgenv().__ESPCleanup)
+end
+
+getgenv().__ESPCleanup = function()
+    pcall(function() RunService:UnbindFromRenderStep(ESP_BIND_NAME) end)
+    if espGui then pcall(function() espGui:Destroy() end) end
+    for _, hl in pairs(chamsHighlights) do
+        pcall(function() hl:Destroy() end)
+    end
+    chamsHighlights = {}
+    boxes = {}
+    getgenv().__ESPCleanup = nil
+end
+
+Library:OnUnload(function()
+    if getgenv().__ESPCleanup then
+        pcall(getgenv().__ESPCleanup)
+    end
+end)
