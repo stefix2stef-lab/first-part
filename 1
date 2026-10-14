@@ -51,8 +51,6 @@ local espEnabled   = false
 local espThickness = 1
 local espFilled    = false
 
-local teamCheckEnabled = false
-
 -- OUTLINE
 local outlineColor    = Color3.fromRGB(255, 255, 255)
 local outlineColor2   = Color3.fromRGB(255, 255, 255)
@@ -77,18 +75,6 @@ local boxOutlineThickness = 2
 local boxOutlineColor     = Color3.fromRGB(0, 0, 0)
 local boxOutlineAlpha     = 1
 
--- HEALTH BAR
-local healthBarEnabled          = false
-local healthBarSide             = "Left"
-local healthBarWidth            = 1
-local healthBarGap              = 3
-local healthBarPadding          = 0
-local healthBarColor            = Color3.fromRGB(0, 255, 0)
-local healthBarOutlineEnabled   = false
-local healthBarOutlineColor     = Color3.fromRGB(0, 0, 0)
-local healthBarOutlineAlpha     = 1
-local healthBarOutlineThickness = 1
-
 -- NAME
 local nameEnabled      = false
 local nameColor        = Color3.fromRGB(255, 255, 255)
@@ -96,14 +82,6 @@ local nameOutline      = false
 local nameOutlineColor = Color3.fromRGB(0, 0, 0)
 local nameSize         = 8
 local nameOffset       = 2
-
--- WEAPON
-local weaponEnabled      = false
-local weaponColor        = Color3.fromRGB(255, 255, 255)
-local weaponOutline      = false
-local weaponOutlineColor = Color3.fromRGB(0, 0, 0)
-local weaponSize         = 7
-local weaponOffset       = 1
 
 -- CHAMS
 local chamsEnabled      = false
@@ -136,10 +114,6 @@ local SKELETON_MAX_LINES = 20
 -- ============================================================
 -- POSTACIE — workspace.Characters
 -- ============================================================
-local function getCharactersFolder()
-    return workspace:FindFirstChild("Characters")
-end
-
 local function isCharacterDead(character)
     if not character then return true end
     if character:GetAttribute("Dead") == true then return true end
@@ -173,22 +147,6 @@ local function isTeammate(player)
     local myTeam = LocalPlayer:GetAttribute("Team")
     local pTeam  = player:GetAttribute("Team")
     return myTeam ~= nil and pTeam ~= nil and myTeam == pTeam
-end
-
-local function hasTeam(player)
-    if not player then return false end
-    return player:GetAttribute("Team") ~= nil
-end
-
-local function getWeaponName(player)
-    if not player then return nil end
-    local ce = player:GetAttribute("CurrentEquipped")
-    if type(ce) ~= "string" then return nil end
-    local ok, d = pcall(function() return HttpService:JSONDecode(ce) end)
-    if ok and type(d) == "table" then
-        return d.Name or d.Weapon or d.Skin
-    end
-    return nil
 end
 
 local LIMB_ALIASES = {
@@ -445,29 +403,6 @@ local function createBox(character)
     local fillGradient = Instance.new("UIGradient")
     fillGradient.Parent = fill
 
-    local healthBarOuter = Instance.new("Frame")
-    healthBarOuter.BackgroundTransparency = 1
-    healthBarOuter.BorderSizePixel = 0
-    healthBarOuter.Visible = false
-    healthBarOuter.ZIndex  = 3
-    healthBarOuter.Parent  = espGui
-
-    local healthBarFill = Instance.new("Frame")
-    healthBarFill.BackgroundColor3 = healthBarColor
-    healthBarFill.BorderSizePixel = 0
-    healthBarFill.AnchorPoint = Vector2.new(0, 1)
-    healthBarFill.Position = UDim2.fromScale(0, 1)
-    healthBarFill.Size = UDim2.fromScale(1, 1)
-    healthBarFill.ZIndex = 4
-    healthBarFill.Parent = healthBarOuter
-
-    local healthBarOutline = Instance.new("UIStroke")
-    healthBarOutline.Color = healthBarOutlineColor
-    healthBarOutline.Thickness = healthBarOutlineThickness
-    healthBarOutline.Transparency = 1 - healthBarOutlineAlpha
-    healthBarOutline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    healthBarOutline.Parent = healthBarOuter
-
     local nameLabel = Instance.new("TextLabel")
     nameLabel.BackgroundTransparency = 1
     nameLabel.BorderSizePixel = 0
@@ -487,26 +422,6 @@ local function createBox(character)
     nameStroke.Transparency = nameOutline and 0 or 1
     nameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
     nameStroke.Parent = nameLabel
-
-    local weaponLabel = Instance.new("TextLabel")
-    weaponLabel.BackgroundTransparency = 1
-    weaponLabel.BorderSizePixel = 0
-    weaponLabel.Visible = false
-    weaponLabel.ZIndex  = 5
-    weaponLabel.Font = Enum.Font.GothamSemibold
-    weaponLabel.TextSize = weaponSize
-    weaponLabel.TextColor3 = weaponColor
-    weaponLabel.TextXAlignment = Enum.TextXAlignment.Center
-    weaponLabel.TextYAlignment = Enum.TextYAlignment.Top
-    weaponLabel.Text = ""
-    weaponLabel.Parent = espGui
-
-    local weaponStroke = Instance.new("UIStroke")
-    weaponStroke.Color = weaponOutlineColor
-    weaponStroke.Thickness = 1
-    weaponStroke.Transparency = weaponOutline and 0 or 1
-    weaponStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-    weaponStroke.Parent = weaponLabel
 
     local skeletonLines = {}
     for i = 1, SKELETON_MAX_LINES do
@@ -533,13 +448,8 @@ local function createBox(character)
         fillGradient = fillGradient,
         boxOutlineFrame = boxOutlineFrame,
         boxOutlineStroke = boxOutlineStroke,
-        healthBarOuter = healthBarOuter,
-        healthBarFill = healthBarFill,
-        healthBarOutline = healthBarOutline,
         nameLabel = nameLabel,
         nameStroke = nameStroke,
-        weaponLabel = weaponLabel,
-        weaponStroke = weaponStroke,
         skeletonLines = skeletonLines,
         chamsFrame = 0,
         chamsHRP = nil,
@@ -551,11 +461,7 @@ local function removeBox(character)
         boxes[character].outline:Destroy()
         boxes[character].fill:Destroy()
         boxes[character].boxOutlineFrame:Destroy()
-        boxes[character].healthBarOuter:Destroy()
         boxes[character].nameLabel:Destroy()
-        if boxes[character].weaponLabel then
-            boxes[character].weaponLabel:Destroy()
-        end
         if boxes[character].skeletonLines then
             for _, l in ipairs(boxes[character].skeletonLines) do
                 l.frame:Destroy()
@@ -594,12 +500,9 @@ local function getBox(character)
     local x = hrpPos.X - width / 2
     local y = headPos.Y
 
-    local hp, maxHp = getHealthInfo(character)
-
     return {
-        position  = Vector2.new(x, y),
-        size      = Vector2.new(width, height),
-        healthPct = math.clamp(hp / math.max(maxHp, 1), 0, 1),
+        position = Vector2.new(x, y),
+        size     = Vector2.new(width, height),
     }
 end
 
@@ -633,14 +536,9 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
             if b then
                 local dead = isCharacterDead(character)
 
-                local isTeamHidden = false
-                if teamCheckEnabled and player then
-                    isTeamHidden = isTeammate(player) or not hasTeam(player)
-                end
-
                 -- CHAMS
                 local chamsActive = false
-                if not isTeamHidden and chamsEnabled and not dead then
+                if chamsEnabled and not dead then
                     local skip = false
                     if chamsTeamCheck and player and isTeammate(player) then
                         skip = true
@@ -727,19 +625,6 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
                     b.chamsFrame = 0
                 end
 
-                if isTeamHidden then
-                    b.outline.Visible = false
-                    b.fill.Visible = false
-                    b.boxOutlineFrame.Visible = false
-                    b.healthBarOuter.Visible = false
-                    b.nameLabel.Visible = false
-                    if b.weaponLabel then b.weaponLabel.Visible = false end
-                    for i = 1, SKELETON_MAX_LINES do
-                        if b.skeletonLines[i] then b.skeletonLines[i].frame.Visible = false end
-                    end
-                    continue
-                end
-
                 -- SKELETON
                 if skeletonEnabled and not dead then
                     local rigType     = detectRigType(character)
@@ -821,13 +706,11 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
                     end
                 end
 
-                if not espEnabled and not healthBarEnabled and not nameEnabled and not weaponEnabled then
+                if not espEnabled and not nameEnabled then
                     b.outline.Visible = false
                     b.fill.Visible = false
                     b.boxOutlineFrame.Visible = false
-                    b.healthBarOuter.Visible = false
                     b.nameLabel.Visible = false
-                    if b.weaponLabel then b.weaponLabel.Visible = false end
                     continue
                 end
 
@@ -867,36 +750,6 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
                         b.fill.Visible    = false
                     end
 
-                    if healthBarEnabled then
-                        local barHeight = math.max(0, box.size.Y - healthBarPadding * 2)
-                        local barX
-                        if healthBarSide == "Left" then
-                            barX = box.position.X - healthBarGap - healthBarWidth
-                        else
-                            barX = box.position.X + box.size.X + healthBarGap
-                        end
-                        local barY = box.position.Y + healthBarPadding
-
-                        b.healthBarOuter.Visible = true
-                        b.healthBarOuter.Position = UDim2.fromOffset(barX, barY)
-                        b.healthBarOuter.Size     = UDim2.fromOffset(healthBarWidth, barHeight)
-                        b.healthBarOuter.BackgroundTransparency = 1
-
-                        if healthBarOutlineEnabled and healthBarOutlineAlpha > 0 and healthBarOutlineThickness > 0 then
-                            b.healthBarOutline.Enabled = true
-                            b.healthBarOutline.Color        = healthBarOutlineColor
-                            b.healthBarOutline.Transparency = 1 - healthBarOutlineAlpha
-                            b.healthBarOutline.Thickness    = healthBarOutlineThickness
-                        else
-                            b.healthBarOutline.Enabled = false
-                        end
-
-                        b.healthBarFill.Size = UDim2.fromScale(1, box.healthPct)
-                        b.healthBarFill.BackgroundColor3 = healthBarColor
-                    else
-                        b.healthBarOuter.Visible = false
-                    end
-
                     if nameEnabled then
                         local displayName = player and player.Name or character.Name
                         b.nameLabel.Visible  = true
@@ -913,30 +766,11 @@ RunService:BindToRenderStep(ESP_BIND_NAME, Enum.RenderPriority.Camera.Value + 1,
                     else
                         b.nameLabel.Visible = false
                     end
-
-                    if weaponEnabled and b.weaponLabel then
-                        local wname = (player and getWeaponName(player)) or "No Weapon"
-                        b.weaponLabel.Visible  = true
-                        b.weaponLabel.Text     = wname
-                        b.weaponLabel.TextSize = weaponSize
-                        b.weaponLabel.TextColor3 = weaponColor
-                        b.weaponLabel.Position = UDim2.fromOffset(
-                            box.position.X - 50,
-                            box.position.Y + box.size.Y + weaponOffset
-                        )
-                        b.weaponLabel.Size = UDim2.fromOffset(box.size.X + 100, weaponSize + 4)
-                        b.weaponStroke.Transparency = weaponOutline and 0 or 1
-                        b.weaponStroke.Color        = weaponOutlineColor
-                    elseif b.weaponLabel then
-                        b.weaponLabel.Visible = false
-                    end
                 else
                     b.outline.Visible = false
                     b.fill.Visible = false
                     b.boxOutlineFrame.Visible = false
-                    b.healthBarOuter.Visible = false
                     b.nameLabel.Visible = false
-                    if b.weaponLabel then b.weaponLabel.Visible = false end
                 end
             end
         end
@@ -961,7 +795,6 @@ local function addColorPicker(tab, labelText, flag, defaultColor, defaultTranspa
     local alpha = 1 - (defaultTransparency or 0)
     colorState[flag] = { color = defaultColor, alpha = alpha }
 
-    -- ustaw wartości startowe od razu
     callback(defaultColor, alpha)
 
     tab:CreateColorPicker({
@@ -1055,15 +888,6 @@ addColorPicker(ET, "Outline Color", "BoxOutlineColor",
         boxOutlineAlpha = alpha
     end)
 
--- ---------- TEAMCHECK ----------
-ET:CreateSection("Teamcheck")
-ET:CreateToggle({
-    Name = "Team Check (hide teammates)",
-    CurrentValue = false,
-    Flag = "TeamCheckEnabled",
-    Callback = function(value) teamCheckEnabled = value end,
-})
-
 -- ---------- FILL ----------
 ET:CreateSection("Fill")
 ET:CreateToggle({
@@ -1108,41 +932,6 @@ ET:CreateSlider({
     Callback = function(value) fillBlend = value end,
 })
 
--- ---------- HEALTH BAR ----------
-ET:CreateSection("Health Bar")
-ET:CreateToggle({
-    Name = "Enable Health Bar",
-    CurrentValue = false,
-    Flag = "HealthBarEnabled",
-    Callback = function(value) healthBarEnabled = value end,
-})
-
-ET:CreateDropdown({
-    Name = "Side",
-    Options = {"Left", "Right"},
-    CurrentOption = {"Left"},
-    Flag = "HealthBarSide",
-    Callback = function(option) healthBarSide = dropdownValue(option) end,
-})
-
-addColorPicker(ET, "Bar Color", "HealthBarColor",
-    Color3.fromRGB(0, 255, 0), 0,
-    function(color, alpha) healthBarColor = color end)
-
-ET:CreateToggle({
-    Name = "Enable Health Bar Outline",
-    CurrentValue = false,
-    Flag = "HealthBarOutlineEnabled",
-    Callback = function(value) healthBarOutlineEnabled = value end,
-})
-
-addColorPicker(ET, "Health Bar Outline Color", "HealthBarOutlineColor",
-    Color3.fromRGB(0, 0, 0), 0,
-    function(color, alpha)
-        healthBarOutlineColor = color
-        healthBarOutlineAlpha = alpha
-    end)
-
 -- ---------- NAME ----------
 ET:CreateSection("Name")
 ET:CreateToggle({
@@ -1166,30 +955,6 @@ ET:CreateToggle({
 addColorPicker(ET, "Name Outline Color", "NameOutlineColor",
     Color3.fromRGB(0, 0, 0), 0,
     function(color, alpha) nameOutlineColor = color end)
-
--- ---------- WEAPON ----------
-ET:CreateSection("Weapon")
-ET:CreateToggle({
-    Name = "Enable Weapon ESP",
-    CurrentValue = false,
-    Flag = "WeaponEnabled",
-    Callback = function(value) weaponEnabled = value end,
-})
-
-addColorPicker(ET, "Weapon Color", "WeaponColor",
-    Color3.fromRGB(255, 255, 255), 0,
-    function(color, alpha) weaponColor = color end)
-
-ET:CreateToggle({
-    Name = "Enable Weapon Outline",
-    CurrentValue = false,
-    Flag = "WeaponOutline",
-    Callback = function(value) weaponOutline = value end,
-})
-
-addColorPicker(ET, "Weapon Outline Color", "WeaponOutlineColor",
-    Color3.fromRGB(0, 0, 0), 0,
-    function(color, alpha) weaponOutlineColor = color end)
 
 -- ---------- CHAMS ----------
 ET:CreateSection("Chams")
